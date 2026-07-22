@@ -13,7 +13,12 @@ soksanichenko repos (reference: `discord-meow-bot`).
 - `.github/workflows/codeql.yml` — CodeQL Advanced (Python + Actions). **Only
   works on a public repo** — delete it if this repo will be private (code
   scanning needs GitHub Advanced Security, not purchased for private repos on
-  this account).
+  this account). It will also fail outright until there's at least one real
+  `.py` file under `sources/` ("no source code seen during build") — expect
+  it red until the app skeleton has real Python in it, and only add `CodeQL`
+  to `quality-code-restrictions`'s required checks once it's passing (this
+  template's own ruleset intentionally requires Socket Security only, not
+  CodeQL, for that reason).
 - `pyproject.toml`, `.pre-commit-config.yaml`, `requirements.txt`,
   `requirements.yml`, `LICENSE`, `.gitignore` — replace every `REPLACE_ME*`
   placeholder.
