@@ -1,5 +1,4 @@
 from conftest import FIXTURES
-
 from security_scan.findings import (
     Finding,
     dedupe,

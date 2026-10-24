@@ -1,7 +1,6 @@
 from datetime import date
 
 from conftest import FIXTURES
-
 from security_scan.__main__ import main, run
 from security_scan.issue import ISSUE_TITLE, Issue
 

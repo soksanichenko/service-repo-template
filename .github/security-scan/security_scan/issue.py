@@ -62,8 +62,10 @@ def render_body(findings: Sequence[Finding], run_url: str) -> str:
     """
     unfixed = sum(1 for f in findings if f.fixed is None)
     lines = [
-        f'The daily scan found {len(findings)} open vulnerabilities '
-        f'({unfixed} without a fix). Last run: {run_url}',
+        (
+            f'The daily scan found {len(findings)} open vulnerabilities '
+            f'({unfixed} without a fix). Last run: {run_url}'
+        ),
         '',
         '| Package | Version | Advisory | CVSS | Fix |',
         '|---|---|---|---|---|',
@@ -75,8 +77,10 @@ def render_body(findings: Sequence[Finding], run_url: str) -> str:
     if len(findings) > ROW_LIMIT:
         lines += [
             '',
-            f'{len(findings) - ROW_LIMIT} more not shown, '
-            f'{len(findings)} in total; see the run: {run_url}',
+            (
+                f'{len(findings) - ROW_LIMIT} more not shown, '
+                f'{len(findings)} in total; see the run: {run_url}'
+            ),
         ]
     ids = ','.join(f.id for f in findings[:MAX_IDS])
     lines += ['', f'<!-- security-scan-ids: {ids} -->']

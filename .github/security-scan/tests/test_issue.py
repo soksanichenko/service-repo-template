@@ -2,7 +2,6 @@ import json
 import subprocess
 
 import pytest
-
 from security_scan.findings import Finding
 from security_scan.issue import (
     ISSUE_TITLE,
