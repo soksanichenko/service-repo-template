@@ -1,0 +1,32 @@
+---
+name: Security scan tests
+
+on:
+  push:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install test tooling
+        run: pip install pytest==9.1.1 ruff==0.15.13
+
+      - name: Run ruff
+        run: |
+          ruff check .github/security-scan
+          ruff format --check .github/security-scan
+
+      - name: Run tests
+        run: python -m pytest .github/security-scan/tests -q
