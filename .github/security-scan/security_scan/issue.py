@@ -14,6 +14,7 @@ from security_scan.findings import Finding
 ISSUE_TITLE = 'Security scan: open vulnerabilities'
 LABEL = 'security-scan'
 ROW_LIMIT = 50
+COMMENT_ROW_LIMIT = 10
 MAX_IDS = 2000
 
 Action = Literal['create', 'comment', 'close', 'none']
@@ -49,6 +50,16 @@ def decide(open_issue: Issue | None, findings: Sequence[Finding]) -> Action:
     return 'comment' if findings else 'close'
 
 
+def _table(findings: Sequence[Finding]) -> list[str]:
+    """Markdown table lines (header, separator, one row per finding)."""
+    lines = ['| Package | Version | Advisory | CVSS | Fix |', '|---|---|---|---|---|']
+    for f in findings:
+        severity = '-' if f.severity is None else f'{f.severity:.1f}'
+        fix = f.fixed or 'no fix available'
+        lines.append(f'| `{f.package}` | {f.version} | {f.id} | {severity} | {fix} |')
+    return lines
+
+
 def render_body(findings: Sequence[Finding], run_url: str) -> str:
     """Render the issue body.
 
@@ -67,13 +78,8 @@ def render_body(findings: Sequence[Finding], run_url: str) -> str:
             f'({unfixed} without a fix). Last run: {run_url}'
         ),
         '',
-        '| Package | Version | Advisory | CVSS | Fix |',
-        '|---|---|---|---|---|',
+        *_table(findings[:ROW_LIMIT]),
     ]
-    for f in findings[:ROW_LIMIT]:
-        severity = '-' if f.severity is None else f'{f.severity:.1f}'
-        fix = f.fixed or 'no fix available'
-        lines.append(f'| `{f.package}` | {f.version} | {f.id} | {severity} | {fix} |')
     if len(findings) > ROW_LIMIT:
         lines += [
             '',
@@ -108,15 +114,26 @@ def render_comment(
         run_url: URL of the workflow run.
 
     Returns:
-        A one-paragraph summary: still open, new, and without a fix.
+        A summary line (still open, new, without a fix) followed by a table of
+        the ``COMMENT_ROW_LIMIT`` highest-severity findings.
     """
     still = sum(1 for f in findings if f.id in previous_ids)
     new = len(findings) - still
     unfixed = sum(1 for f in findings if f.fixed is None)
-    return (
-        f'Still open: {still}. New since the last scan: {new}. '
-        f'Without a fix: {unfixed}. Run: {run_url}'
-    )
+    lines = [
+        (
+            f'Still open: {still}. New since the last scan: {new}. '
+            f'Without a fix: {unfixed}. Run: {run_url}'
+        ),
+        '',
+        *_table(findings[:COMMENT_ROW_LIMIT]),
+    ]
+    if len(findings) > COMMENT_ROW_LIMIT:
+        lines += [
+            '',
+            f'{len(findings) - COMMENT_ROW_LIMIT} more are listed in the issue.',
+        ]
+    return '\n'.join(lines)
 
 
 class IssueClient(Protocol):
