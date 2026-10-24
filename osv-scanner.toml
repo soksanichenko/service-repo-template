@@ -1,0 +1,9 @@
+# Accepted risks for the daily security scan (.github/workflows/security-scan.yml).
+# A listed advisory is not reported until `ignoreUntil` passes; after that the
+# finding comes back, so every entry gets a review date. Match by any alias of the
+# advisory (CVE-..., GHSA-..., PYSEC-...).
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2026-12-31
+# reason = "Why this does not apply here, and what would make it apply."
