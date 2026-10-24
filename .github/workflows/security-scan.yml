@@ -1,0 +1,18 @@
+---
+name: Security scan
+
+on:
+  schedule:
+    - cron: '37 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: write
+
+jobs:
+  scan:
+    # Other repositories pin this workflow by commit SHA, e.g.
+    # soksanichenko/service-repo-template/.github/workflows/security-scan-reusable.yml@<sha>
+    uses: ./.github/workflows/security-scan-reusable.yml
