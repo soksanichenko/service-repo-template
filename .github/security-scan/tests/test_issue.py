@@ -4,6 +4,7 @@ import subprocess
 import pytest
 from security_scan.findings import Finding
 from security_scan.issue import (
+    COMMENT_ROW_LIMIT,
     ISSUE_TITLE,
     LABEL,
     ROW_LIMIT,
@@ -89,6 +90,25 @@ def test_comment_counts_new_and_still_open():
     assert 'New since the last scan: 1' in comment
     assert 'Without a fix: 1' in comment
     assert RUN_URL in comment
+
+
+def test_comment_lists_the_highest_severity_rows_and_counts_the_rest():
+    findings = [finding(n) for n in range(1, 13)]
+
+    comment = render_comment(findings, frozenset(), RUN_URL)
+
+    rows = [line for line in comment.splitlines() if line.startswith('| `pkg-')]
+    assert len(rows) == COMMENT_ROW_LIMIT == 10
+    assert '`pkg-1`' in comment
+    assert '`pkg-11`' not in comment
+    assert '2 more are listed in the issue' in comment
+
+
+def test_comment_without_overflow_has_no_more_line():
+    comment = render_comment([finding(1), finding(2)], frozenset(), RUN_URL)
+
+    assert 'more are listed' not in comment
+    assert '| Package | Version | Advisory | CVSS | Fix |' in comment
 
 
 def test_ids_from_body_round_trips_every_id_even_when_rows_are_truncated():
