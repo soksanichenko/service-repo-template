@@ -1,0 +1,38 @@
+{
+ "dependencies": [
+  {
+   "name": "pillow",
+   "version": "12.3.0",
+   "vulns": [
+    {
+     "id": "CVE-2026-112393",
+     "fix_versions": [
+      "13.0.0"
+     ],
+     "aliases": [
+      "GHSA-332p-7hrc-92wf"
+     ]
+    },
+    {
+     "id": "CVE-2026-112398",
+     "fix_versions": [
+      "13.0.0"
+     ],
+     "aliases": [
+      "GHSA-5x8w-8jj5-q52h"
+     ]
+    },
+    {
+     "id": "CVE-2026-112390",
+     "fix_versions": [
+      "13.0.0"
+     ],
+     "aliases": [
+      "GHSA-22hg-r758-rrw9"
+     ]
+    }
+   ]
+  }
+ ],
+ "fixes": []
+}

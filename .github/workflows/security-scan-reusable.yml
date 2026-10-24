@@ -1,0 +1,108 @@
+---
+# Daily dependency security scan, called from each repository's own
+# `security-scan.yml`. Lockfiles go through osv-scanner, every requirements*.txt
+# through pip-audit (osv-scanner's resolver reports false findings for bare
+# requirements files). The result is one `security-scan` issue per repository;
+# see `.github/security-scan/` for what keeps that issue up to date.
+name: Security scan (reusable)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      OSV_SCANNER_VERSION: v2.7.0
+      # SHA-256 of osv-scanner_linux_amd64 for the version above.
+      OSV_SCANNER_SHA256: 160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
+      PIP_AUDIT_VERSION: 2.10.1
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install osv-scanner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$OSV_SCANNER_VERSION" --repo google/osv-scanner \
+            --pattern osv-scanner_linux_amd64 --dir "$RUNNER_TEMP"
+          echo "$OSV_SCANNER_SHA256  $RUNNER_TEMP/osv-scanner_linux_amd64" | sha256sum --check -
+          chmod +x "$RUNNER_TEMP/osv-scanner_linux_amd64"
+
+      # Exit 0: clean, 1: vulnerabilities found, 128: nothing to scan. Anything
+      # else is a failure of the tool itself and fails the job.
+      - name: Scan lockfiles
+        run: |
+          set +e
+          "$RUNNER_TEMP/osv-scanner_linux_amd64" scan source -r --no-resolve \
+            --format json --output-file "$RUNNER_TEMP/osv.json" .
+          code=$?
+          case "$code" in
+            0|1) ;;
+            128) echo "No scannable manifests."; rm -f "$RUNNER_TEMP/osv.json" ;;
+            *) echo "::error::osv-scanner failed with exit code $code"; exit "$code" ;;
+          esac
+
+      # pip-audit exits non-zero when it finds vulnerabilities, so success is
+      # judged by whether it produced its JSON report.
+      - name: Audit Python requirements
+        run: |
+          pip install --quiet "pip-audit==$PIP_AUDIT_VERSION"
+          i=0
+          git ls-files -- '*requirements*.txt' | while read -r file; do
+            i=$((i + 1))
+            out="$RUNNER_TEMP/pip-audit-$i.json"
+            pip-audit -r "$file" -s osv -f json -o "$out" --progress-spinner off || true
+            if [ ! -s "$out" ]; then
+              echo "::error::pip-audit produced no report for $file"
+              exit 1
+            fi
+          done
+
+      # Checked out only now so that osv-scanner and pip-audit never see the
+      # manifests of the tooling repository.
+      - name: Check out the scan tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .security-scan-src
+          persist-credentials: false
+
+      - name: Update the security issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}/.security-scan-src/.github/security-scan
+        run: |
+          args=(--repo "$GITHUB_REPOSITORY" \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+          [ -f "$RUNNER_TEMP/osv.json" ] && args+=(--osv-json "$RUNNER_TEMP/osv.json")
+          for report in "$RUNNER_TEMP"/pip-audit-*.json; do
+            [ -e "$report" ] && args+=(--pip-audit-json "$report")
+          done
+          python -m security_scan "${args[@]}"
+
+  # Public repositories lose their scheduled workflows after 60 days without
+  # repository activity; this re-enables the calling workflow through the API
+  # instead of making dummy commits.
+  keepalive:
+    name: keepalive
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: liskin/gh-workflow-keepalive@f72ff1a1336129f29bf0166c0fd0ca6cf1bcb38c # v1.2.1
