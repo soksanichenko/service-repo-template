@@ -24,7 +24,16 @@ jobs:
       # SHA-256 of osv-scanner_linux_amd64 for the version above.
       OSV_SCANNER_SHA256: 160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
       PIP_AUDIT_VERSION: 2.10.1
+    outputs:
+      private: ${{ steps.visibility.outputs.private }}
     steps:
+      # First, so that the output exists even when a later step fails.
+      - name: Detect the repository visibility
+        id: visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "private=$(gh api "repos/$GITHUB_REPOSITORY" --jq .private)" >> "$GITHUB_OUTPUT"
+
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -97,10 +106,15 @@ jobs:
 
   # Public repositories lose their scheduled workflows after 60 days without
   # repository activity; this re-enables the calling workflow through the API
-  # instead of making dummy commits.
+  # instead of making dummy commits. Private repositories keep their schedules,
+  # so the job is skipped there: it would only bill a minute a day. An unknown
+  # visibility runs it.
   keepalive:
     name: keepalive
-    if: github.event_name == 'schedule'
+    needs: scan
+    if: >-
+      !cancelled() && github.event_name == 'schedule'
+      && needs.scan.outputs.private != 'true'
     runs-on: ubuntu-latest
     permissions:
       actions: write
